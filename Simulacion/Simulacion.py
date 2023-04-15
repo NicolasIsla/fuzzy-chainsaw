@@ -5,7 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Simulacion:
-    def __init__(self, duracion, frec_muestreo, f, to=0):
+    """
+    Crea simulación temporal arbitraria, permite muestrear funciones.
+    """
+    def __init__(self, duracion, frec_muestreo, f=lambda x: x, to=0):
         self.duracion = duracion
         self.frec_muestreo = frec_muestreo
         self.f = f
@@ -18,16 +21,19 @@ class Simulacion:
     def run_f(self):
         for i, t in enumerate(self.tiempo):
             self.resultado[i] = self.f(t+self.to)
-    
+
     # Genera gráfico con resultados de simulación.
     def plot_f(self):
         plt.figure(figsize=(7,5))
         plt.plot(self.tiempo, self.resultado)
+        plt.xlabel("Tiempo (segundos)")
+        plt.ylabel("f(t)")
+        plt.title("Gráfico")
         plt.show()
 
 class Simulacion_CLD(Simulacion):
-    def __init__(self, rango_EP, rango_TP, rango_deltaH, P_obj):
-        super().__init__()
+    def __init__(self, duracion, frec_muestreo, rango_EP, rango_TP, rango_deltaH, P_obj):
+        super().__init__(duracion, frec_muestreo)
         self.rango_EP = rango_EP
         self.rango_TP = rango_TP
         self.rango_deltaH = rango_deltaH
@@ -45,6 +51,6 @@ if __name__ == "__main__":
     frec = 5  # Hz
     frec_muestreo = 10 # Hz
     f = lambda t: np.sin(2*np.pi*frec*t)
-    sim = Simulacion(2, frec_muestreo, f)
+    sim = Simulacion(2, frec_muestreo)
     sim.run_f()
     sim.plot_f()
