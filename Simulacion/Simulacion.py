@@ -3,6 +3,7 @@ Módulo para crear simulación temporal
 """
 import numpy as np
 import matplotlib.pyplot as plt
+from ..utils.FuzzyOperations import u_A
 
 class Simulacion:
     """
@@ -68,7 +69,7 @@ class Simulacion_CLD(Simulacion):
 
     def definir_rangos(self, rango_EP, rango_TP, rango_deltaH):
         """
-        
+        Define rangos para las variables difusas.
         """
         self.rango_EP = rango_EP
         self.rango_TP = rango_TP
