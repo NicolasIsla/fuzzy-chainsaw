@@ -1,1 +1,1 @@
-from .Simulacion import Simulacion, Simulacion_CLD
+from .Simulacion import *
