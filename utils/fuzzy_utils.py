@@ -22,13 +22,24 @@ def estandarizar_valor(valor, rango_inicial = [-15, 15], rango_final = [-1, 1]):
     """
     return ((valor - rango_inicial[0]) / (rango_inicial[1] - rango_inicial[0])) * (rango_final[1] - rango_final[0]) + rango_final[0]
 
+def ecuacion_recta(x, m, xo, yo):
+    return m*(x-xo)+yo
+
 def u_A(A, x, pertenencia = [0, 1, 1, 0]):
     """
     Calcula el grado de pertenencia de un valor dado x en un conjunto difuso A. Usa una
     interpolación para calcular la curva. Se asume que x pertenece al rango admisible.
     Nota: funciona tanto como para valores puntuales (map lambda) como para dominios enteros.
     """
-    return np.interp(x, A, pertenencia)
+    if not isinstance(x, float):
+        #print("soy un vector")
+        return np.interp(x, A, pertenencia)
+    else:
+        #print("soy un numero")
+        if x < A[0] or x > A[3]: return 0
+        elif x < A[1]: return ecuacion_recta(x, (1-0)/(A[1]-A[0]), A[0], 0)
+        elif x > A[2]: return ecuacion_recta(x, (0-1)/(A[3]-A[2]), A[2], 1)
+        else: return 1
 
 def de_A(A, B):
     """
@@ -50,7 +61,7 @@ def regla_min(corte, pertenencia_original):
     return pertenencia_original*(filtro)+(~filtro)*corte
 
 
-def desdifusor(mapa_reglas, activacion, metodo_desdifusion='CG', N_muestras=200):
+def desdifusor(mapa_reglas, activacion, metodo_desdifusion='CG', N_muestras=41):
     """
     Realiza la desdifusión del tipo especificada en vase a los valores de activación
     calculados y el mapa de reglas.
@@ -69,10 +80,10 @@ def desdifusor(mapa_reglas, activacion, metodo_desdifusion='CG', N_muestras=200)
             # se satura el valor con el mínimo de las entradas
             salida[i] = regla_min(activacion[i], conjunto_muestreado)
         # se toma la cobertura de las 17 salidas
-        covertura = np.maximum.reduce(salida)
+        cobertura = np.maximum.reduce(salida)
         # retorno del centro de gravedad: crisp value delta_h.
-        if np.sum(covertura) != 0:
-            return np.sum(dominio*covertura)/(np.sum(covertura))
+        if np.sum(cobertura) != 0:
+            return np.sum(dominio*cobertura)/(np.sum(cobertura))
         else:
             return 0
 

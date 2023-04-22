@@ -3,6 +3,7 @@ Módulo para crear simulación temporal
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from utils.fuzzy_utils import *
 
 class Simulacion:
@@ -26,9 +27,9 @@ class Simulacion:
     # Genera gráfico con resultados de simulación.
     def plot_sim(self, resultado=None):
         plt.figure(figsize=(7,5))
-        if resultado is not None: plt.plot(self.tiempo, resultado)
-        else: plt.plot(self.tiempo, self.presion)
-        plt.xlabel("Tiempo (segundos)")
+        if resultado is not None: plt.plot(self.tiempo, resultado, "o")
+        else: plt.plot(self.tiempo, self.presion, "o")
+        plt.xlabel("Tiempo")
         plt.ylabel("Presión (Pa)")
         plt.title("Gráfico")
         plt.show()
@@ -92,7 +93,7 @@ class Simulacion_CLD(Simulacion):
         """
         self.metodo_desdifusion = metodo_desdifusion
     
-    def step_sim(self, ep, tp, k=0, verbose=False):
+    def step_sim(self, ep, tp, k=0, verbose=False, participacion=False, nombre="experimento.csv"):
         """
         Funcionamiento de un instante de tiempo del controlador. Variables minúsculas
         son crisp values, mientras que variables mayúsculas son difusas.
@@ -104,15 +105,20 @@ class Simulacion_CLD(Simulacion):
         # Se normalizan entradas
         ep = estandarizar_valor(ep, self.rango_EP, [-1, 1])
         tp = estandarizar_valor(tp, self.rango_TP, [-1, 1])
+            
 
         # Se calculan grados de pertenencia por cada regla y se aplica el mínimo,
         # calculando la activación por cada salida.
         activacion = np.zeros(len(self.mapa_reglas), dtype=np.float64)
         for i, (EP_SET, TP_SET) in enumerate(self.mapa_reglas.keys()):
-            activacion[i] = min(u_A(EP_SET, ep), u_A(TP_SET, tp))
+            minima_activacion = min(u_A(EP_SET, ep), u_A(TP_SET, tp))
+            activacion[i] = minima_activacion
 
         # Se aplica desdifusión usando el método especificado.
         delta_h = desdifusor(self.mapa_reglas, activacion, self.metodo_desdifusion)
+
+        # Se debe estirar el valor nuevo.
+        delta_h = estandarizar_valor(delta_h, [-1, 1], self.rango_deltaH)
 
         # Se recupera la presión a partir de la ecuación entre el cambio de temperatura
         # versus el cambio de presión.
@@ -121,6 +127,34 @@ class Simulacion_CLD(Simulacion):
         # Se guarda el valor en un vector de resultados.
         if k != 0: self.presion[k] = self.presion[k-1] + delta_p
         else: self.presion[k] = self.P_inicial + delta_p
+
+        if participacion is True:
+
+            # Guardado de datos EP vs TP
+            if k==0:
+                columnas = ["EP", "TP"]
+                plano = pd.DataFrame(columns = columnas)
+                plano.loc[k]=[ep, tp] 
+                
+                plano.to_csv(nombre)
+            else:
+                plano = pd.read_csv(nombre, index_col=0)
+                
+                plano.loc[k]=[ep, tp] 
+                plano.to_csv(nombre)
+            
+            # Guardado de datos de participación en cada regla
+            if k == 0:
+                columnas = ["R"+str(i+1) for i in range(len(self.mapa_reglas.keys()))]
+                data_participacion = pd.DataFrame(columns = columnas)
+                data_participacion.loc[k]=activacion
+                
+                data_participacion.to_csv(f"regla_participacion_{nombre}")
+            else:
+                data_participacion = pd.read_csv(f"regla_participacion_{nombre}", index_col=0)
+                
+                data_participacion.loc[k] = activacion
+                data_participacion.to_csv(f"regla_participacion_{nombre}")
         
         if verbose is True:
             print(f"Iteracion {k+1}:")
@@ -131,18 +165,28 @@ class Simulacion_CLD(Simulacion):
             print("="*20)
 
     # Override de método original
-    def run_sim(self, ep_inicial=0, verbose=False):
+    def run_sim(self, ep_anterior=0, verbose=False, participacion=False, nombre="experimento.csv"):
 
         # Primera iteración:
         ep = self.P_inicial - self.P_obj
-        tp = ep - ep_inicial
-        self.step_sim(ep, tp, 0, verbose)
+        tp = ep - ep_anterior
+        if verbose is True:
+            print(f"ep_anterior = {ep_anterior}")
+            print(f"ep = self.P_inicial - self.P_obj = {ep}")
+            print(f"tp = ep - ep_anterior = {tp}")
+        self.step_sim(ep, tp, 0, verbose, participacion, nombre)
 
         # Siguientes iteraciones
         for i in range(1, len(self.tiempo)):
+            ep_anterior = ep
             ep = self.presion[i-1] - self.P_obj
-            tp = ep - tp  # La información de la variable tp anterior está guardada en si misma.
-            self.step_sim(ep, tp, i, verbose)
+            tp = ep - ep_anterior
+            if verbose is True:
+                print(f"ep_anterior = {ep_anterior}")
+                print(f"ep = self.presion[i-1] - self.P_obj = {ep}")
+                print(f"tp = ep - ep_anterior = {tp}")
+            self.step_sim(ep, tp, i, verbose, participacion, nombre)
+
 
 if __name__ == "__main__":
     """
