@@ -66,26 +66,60 @@ def desdifusor(mapa_reglas, activacion, metodo_desdifusion='CG', N_muestras=41):
     Realiza la desdifusión del tipo especificada en vase a los valores de activación
     calculados y el mapa de reglas.
     """
+    dominio = np.linspace(-1, 1, N_muestras)
+    # Salida de cada regla con la saturacion aplicada
+    salida = np.zeros((len(mapa_reglas), N_muestras), dtype=np.float64)
+    for i, DELTA_H in enumerate(mapa_reglas.values()):
+        # se muestre el conjunto de salida
+        conjunto_muestreado = u_A(DELTA_H, dominio)
+        # se satura el valor con el mínimo de las entradas
+        salida[i] = regla_min(activacion[i], conjunto_muestreado)
+    # se toma la cobertura de las 17 salidas
     if metodo_desdifusion == 'CG':
         """
         Regla de centro de gravedad, recive las reglas y el grado de activacion de cada una
         Retorna el valor perteneciente al centro de gravedad
         """
-        dominio = np.linspace(-1, 1, N_muestras)
-        # Salida de cada regla con la saturacion aplicada
-        salida = np.zeros((len(mapa_reglas), N_muestras), dtype=np.float64)
-        for i, DELTA_H in enumerate(mapa_reglas.values()):
-            # se muestre el conjunto de salida
-            conjunto_muestreado = u_A(DELTA_H, dominio)
-            # se satura el valor con el mínimo de las entradas
-            salida[i] = regla_min(activacion[i], conjunto_muestreado)
-        # se toma la cobertura de las 17 salidas
         cobertura = np.maximum.reduce(salida)
         # retorno del centro de gravedad: crisp value delta_h.
         if np.sum(cobertura) != 0:
             return np.sum(dominio*cobertura)/(np.sum(cobertura))
         else:
             return 0
+    
+    elif metodo_desdifusion == 'PS':
+        """
+        Promedio de los supremos, recibe las reglas y el grado de activacion de cada una
+        Retorna el valor perteneciente al promedio de los valores máximos
+
+
+        """
+        # cobertura = np.maximum.reduce(salida)
+        # max_valor = np.max(cobertura)
+        # mask = cobertura ==max_valor
+        # # retorno del promedio de los valores máximos: crisp value delta_h.
+        # return np.mean(dominio[mask])
+        max_valor = np.max(salida)
+        mask = salida == max_valor
+        new_dominio = np.repeat(dominio[:, np.newaxis].T, len(salida), axis=0)
+        # retorno del promedio de los valores máximos: crisp value delta_h.
+        return np.mean(new_dominio[mask])
+        
+    elif metodo_desdifusion == 'A':
+        """
+        Alturas, recibe las reglas y el grado de activacion de cada una
+        Retorna el valor 
+        """
+        alturas = []
+        for s in salida:
+            if np.sum(s) != 0:
+                h = np.sum(dominio*s)/(np.sum(s))
+                alturas.append(h)
+
+        altura = np.mean(alturas)
+
+        return altura
+    
 
 # Test
 if __name__ == "__main__":
