@@ -10,7 +10,7 @@ class Simulacion:
     """
     Crea simulación temporal arbitraria, permite muestrear funciones.
     """
-    def __init__(self, duracion, frec_muestreo, f=lambda x: x, to=0):
+    def __init__(self, duracion, frec_muestreo, f=lambda x: x, to=0, metodo_desdifusion_label ="CG"):
         self.duracion = duracion
         self.frec_muestreo = frec_muestreo
         self.f = f
@@ -19,7 +19,14 @@ class Simulacion:
         self.tiempo = np.linspace(to, duracion+to, self.N)
         self.presion = np.zeros(self.N, dtype=np.float64)  # Idealmente es presión
         self.deltah = np.zeros(self.N, dtype=np.float64)  # Vector de diferencias de calor adicional para parte opcional
-    
+        if metodo_desdifusion_label=="CG":
+            self.metodo_desdifusion_label  = "Centro de Gravedad"
+        elif metodo_desdifusion_label=="A":
+            self.metodo_desdifusion_label  = "Alturas"
+        elif metodo_desdifusion_label=="PS":
+            self.metodo_desdifusion_label  = "Promedio de Supremos"
+        else:
+            self.metodo_desdifusion_label = "Indefinido"
     # Ejecuta simulación básica sobre P.
     def run_sim(self):
         for i, t in enumerate(self.tiempo):
@@ -28,11 +35,17 @@ class Simulacion:
     # Genera gráfico con resultados de simulación.
     def plot_sim(self, resultado=None):
         plt.figure(figsize=(7,5))
-        if resultado is not None: plt.plot(self.tiempo, resultado, "o")
-        else: plt.plot(self.tiempo, self.presion, "o")
+        
+        if resultado is not None: plt.plot(self.tiempo, resultado, "-o")
+        else: plt.plot(self.tiempo, self.presion, "-o")
         plt.xlabel("Tiempo")
+        plt.ylim(700,800)
+        plt.hlines(750, 0, 50,colors="red", linestyles="dashed")
+        plt.xticks(np.linspace(0,50,11))
+
+
         plt.ylabel("Presión (Pa)")
-        plt.title("Gráfico")
+        plt.title(f"Gráfico con el método {self.metodo_desdifusion_label}")
         plt.show()
 
 class Simulacion_CLD(Simulacion):
@@ -54,7 +67,7 @@ class Simulacion_CLD(Simulacion):
                  tipo = "lineal",
                  verbose = True):
         
-        super().__init__(duracion, frec_muestreo)
+        super().__init__(duracion, frec_muestreo,metodo_desdifusion_label=metodo_desdifusion)
         self.mapa_reglas = mapa_reglas
         self.rango_EP = rango_EP
         self.rango_TP = rango_TP
