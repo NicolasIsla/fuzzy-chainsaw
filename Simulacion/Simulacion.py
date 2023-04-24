@@ -18,6 +18,7 @@ class Simulacion:
         self.N = int(duracion * frec_muestreo)
         self.tiempo = np.linspace(to, duracion+to, self.N)
         self.presion = np.zeros(self.N, dtype=np.float64)  # Idealmente es presión
+        self.deltah = np.zeros(self.N, dtype=np.float64)  # Vector de diferencias de calor adicional para parte opcional
     
     # Ejecuta simulación básica sobre P.
     def run_sim(self):
@@ -45,10 +46,12 @@ class Simulacion_CLD(Simulacion):
                  rango_EP = [-15, 15], 
                  rango_TP = [-15, 15], 
                  rango_deltaH = [-15, 15], 
-                 K = 0.6, 
+                 K = 0.6,
+                 C = 0.5,
                  P_obj = 700, 
                  P_inicial = 690,
                  metodo_desdifusion = "CG",
+                 tipo = "lineal",
                  verbose = True):
         
         super().__init__(duracion, frec_muestreo)
@@ -57,21 +60,26 @@ class Simulacion_CLD(Simulacion):
         self.rango_TP = rango_TP
         self.rango_deltaH = rango_deltaH
         self.K = K
+        self.C = C
         self.P_obj = P_obj
         self.P_inicial = P_inicial
         self.metodo_desdifusion = metodo_desdifusion
+        self.tipo = tipo
 
-        mensaje = f"""Se creó el simulador para el controlador difuso con los siguientes parámetros.
-        duración = {duracion} [s]
-        frec_muestreo = {frec_muestreo} [Hz]
-        rango_EP = {rango_EP}
-        rango_TP = {rango_TP}
-        rango_deltaH = {rango_EP}
+        if tipo not in ("lineal", "exacto"):
+            raise NotImplementedError("Método aún no implementado.")
 
-        La variable a controlar es P={K}*H usando lógica difusa.
-        La presión objetivo es P_obj={P_obj}[Pa], y la presión inicial es P_inicial={P_inicial}[Pa]
-        """
-        if verbose is True: print(mensaje)
+        if verbose is True:
+            print("Se creó el simulador para el controlador difuso con los siguientes parámetros.")
+            print(f"duración = {duracion} [s]")
+            print(f"frec_muestreo = {frec_muestreo} [Hz]")
+            print(f"rango_EP = {rango_EP}")
+            print(f"rango_TP = {rango_TP}")
+            print(f"rango_deltaH = {rango_deltaH}")
+            print(f"P_objetivo = {P_obj} [Pa]")
+            print(f"P_inicial = {P_inicial} [Pa]")
+            if tipo == "lineal": print(f"La variable a controlar es dP(t)={K}*dH(t-1) usando lógica difusa.")
+            elif tipo == "exacto": print(f"La variable a controlar es dP(t)={K}*dH(t)+{C}*dP(t-1) usando lógica difusa.")
 
     def definir_rangos(self, rango_EP, rango_TP, rango_deltaH):
         """
@@ -93,11 +101,12 @@ class Simulacion_CLD(Simulacion):
         """
         self.metodo_desdifusion = metodo_desdifusion
     
-    def step_sim(self, ep, tp, k=0, verbose=False, participacion=False, nombre="experimento.csv"):
+    def step_sim(self, ep, tp, dh_anterior, dp_anterior, k=0, verbose=False, participacion=False, nombre="experimento.csv"):
         """
         Funcionamiento de un instante de tiempo del controlador. Variables minúsculas
         son crisp values, mientras que variables mayúsculas son difusas.
         """
+
         # Se saturan entradas
         ep = saturador(ep, self.rango_EP)
         tp = saturador(tp, self.rango_TP)
@@ -106,7 +115,6 @@ class Simulacion_CLD(Simulacion):
         ep = estandarizar_valor(ep, self.rango_EP, [-1, 1])
         tp = estandarizar_valor(tp, self.rango_TP, [-1, 1])
             
-
         # Se calculan grados de pertenencia por cada regla y se aplica el mínimo,
         # calculando la activación por cada salida.
         activacion = np.zeros(len(self.mapa_reglas), dtype=np.float64)
@@ -122,7 +130,10 @@ class Simulacion_CLD(Simulacion):
 
         # Se recupera la presión a partir de la ecuación entre el cambio de temperatura
         # versus el cambio de presión.
-        delta_p = self.K * delta_h
+        if self.tipo == "lineal":
+            delta_p = self.K * dh_anterior
+        elif self.tipo == "exacto":
+            delta_p = self.K * delta_h + self.C * dp_anterior
 
         # Se guarda el valor en un vector de resultados.
         if k != 0: self.presion[k] = self.presion[k-1] + delta_p
@@ -164,28 +175,42 @@ class Simulacion_CLD(Simulacion):
             print(f"delta_p = {delta_p}")
             print("="*20)
 
-    # Override de método original
-    def run_sim(self, ep_anterior=0, verbose=False, participacion=False, nombre="experimento.csv"):
+        # Finalmente se entrega delta_h y delta_p. Se usarán en la siguiente iteración.
+        return delta_h, delta_p
 
-        # Primera iteración:
+    # Override de método original
+    def run_sim(self, ep_anterior=0, dh_anterior=0, dp_anterior=0, verbose=False, participacion=False, nombre="experimento.csv"):
+
         ep = self.P_inicial - self.P_obj
         tp = ep - ep_anterior
+
+        # Variables del loop de simulación.
+        delta_h = dh_anterior
+        delta_p = dp_anterior
+
         if verbose is True:
             print(f"ep_anterior = {ep_anterior}")
             print(f"ep = self.P_inicial - self.P_obj = {ep}")
             print(f"tp = ep - ep_anterior = {tp}")
-        self.step_sim(ep, tp, 0, verbose, participacion, nombre)
+        
+        # Primera iteración:
+        delta_h, delta_p = self.step_sim(ep, tp, delta_h, delta_p, 0, 
+                                         verbose=verbose, participacion=participacion, nombre=nombre)
 
         # Siguientes iteraciones
         for i in range(1, len(self.tiempo)):
             ep_anterior = ep
             ep = self.presion[i-1] - self.P_obj
             tp = ep - ep_anterior
+
             if verbose is True:
                 print(f"ep_anterior = {ep_anterior}")
                 print(f"ep = self.presion[i-1] - self.P_obj = {ep}")
                 print(f"tp = ep - ep_anterior = {tp}")
-            self.step_sim(ep, tp, i, verbose, participacion, nombre)
+                
+            # Iteración i-ésima    
+            delta_h, delta_p = self.step_sim(ep, tp, delta_h, delta_p, k=i, 
+                                             verbose=verbose, participacion=participacion, nombre=nombre)
 
 
 if __name__ == "__main__":
