@@ -33,19 +33,17 @@ class Simulacion:
             self.presion[i] = self.f(t+self.to)
 
     # Genera gráfico con resultados de simulación.
-    def plot_sim(self, resultado=None, ylabel="Presion (Pa)", title="Colocar nombre a gráfico"):
+    def plot_sim(self, resultado=None, ylabel="Presion (Pa)", preciso = False):
         plt.figure(figsize=(7,5))
         
         if resultado is not None: plt.plot(self.tiempo, resultado, "-o")
         else: plt.plot(self.tiempo, self.presion, "-o")
         plt.xlabel("Tiempo")
-        plt.ylim(700,800)
-        plt.hlines(750, 0, 50,colors="red", linestyles="dashed")
+        if preciso is True: plt.ylim(700,800)
+        plt.hlines(750, 0, 50, colors="red", linestyles="dashed")
         plt.xticks(np.linspace(0,50,11))
-
-
-        plt.ylabel("Presión (Pa)")
-        plt.title(f"Gráfico con el método {self.metodo_desdifusion_label}")
+        plt.ylabel(ylabel)
+        plt.title(f"P(t) vs T, {self.metodo_desdifusion_label}")
         plt.show()
 
 class Simulacion_CLD(Simulacion):
