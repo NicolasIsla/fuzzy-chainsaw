@@ -33,7 +33,7 @@ class Simulacion:
             self.presion[i] = self.f(t+self.to)
 
     # Genera gráfico con resultados de simulación.
-    def plot_sim(self, resultado=None):
+    def plot_sim(self, resultado=None, ylabel="Presion (Pa)", title="Colocar nombre a gráfico"):
         plt.figure(figsize=(7,5))
         
         if resultado is not None: plt.plot(self.tiempo, resultado, "-o")
@@ -102,11 +102,11 @@ class Simulacion_CLD(Simulacion):
         self.rango_TP = rango_TP
         self.rango_deltaH = rango_deltaH
     
-    def definir_presion_objetivo(self, P_obj):
+    def definir_presion_inicial(self, P_inicial):
         """
-        Permite definir la presión objetivo.
+        Permite definir la presión inicial.
         """
-        self.P_obj = P_obj
+        self.P_inicial = P_inicial
     
     def definir_metodo_desdifusion(self, metodo_desdifusion):
         """
@@ -149,8 +149,12 @@ class Simulacion_CLD(Simulacion):
             delta_p = self.K * delta_h + self.C * dp_anterior
 
         # Se guarda el valor en un vector de resultados.
-        if k != 0: self.presion[k] = self.presion[k-1] + delta_p
-        else: self.presion[k] = self.P_inicial + delta_p
+        if k != 0: 
+            self.presion[k] = self.presion[k-1] + delta_p
+            self.deltah[k] = delta_h
+        else: 
+            self.presion[k] = self.P_inicial + delta_p
+            self.deltah[k] = delta_h
 
         if participacion is True:
 
@@ -224,15 +228,3 @@ class Simulacion_CLD(Simulacion):
             # Iteración i-ésima    
             delta_h, delta_p = self.step_sim(ep, tp, delta_h, delta_p, k=i, 
                                              verbose=verbose, participacion=participacion, nombre=nombre)
-
-
-if __name__ == "__main__":
-    """
-    Como prueba se grafica la función seno.
-    """
-    frec = 5  # Hz
-    frec_muestreo = 100 # Hz
-    f = lambda t: np.sin(2*np.pi*frec*t)
-    sim = Simulacion_CLD(2, frec_muestreo, f)
-    sim.run_sim()
-    sim.plot_sim()
