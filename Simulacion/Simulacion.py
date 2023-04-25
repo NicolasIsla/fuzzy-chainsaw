@@ -26,13 +26,13 @@ class Simulacion:
             self.presion[i] = self.f(t+self.to)
 
     # Genera gráfico con resultados de simulación.
-    def plot_sim(self, resultado=None):
+    def plot_sim(self, resultado=None, ylabel="Presion (Pa)", title="Colocar nombre a gráfico"):
         plt.figure(figsize=(7,5))
         if resultado is not None: plt.plot(self.tiempo, resultado, "o")
         else: plt.plot(self.tiempo, self.presion, "o")
         plt.xlabel("Tiempo")
-        plt.ylabel("Presión (Pa)")
-        plt.title("Gráfico")
+        plt.ylabel(ylabel)
+        plt.title(title)
         plt.show()
 
 class Simulacion_CLD(Simulacion):
@@ -136,8 +136,12 @@ class Simulacion_CLD(Simulacion):
             delta_p = self.K * delta_h + self.C * dp_anterior
 
         # Se guarda el valor en un vector de resultados.
-        if k != 0: self.presion[k] = self.presion[k-1] + delta_p
-        else: self.presion[k] = self.P_inicial + delta_p
+        if k != 0: 
+            self.presion[k] = self.presion[k-1] + delta_p
+            self.deltah[k] = delta_h
+        else: 
+            self.presion[k] = self.P_inicial + delta_p
+            self.deltah[k] = delta_h
 
         if participacion is True:
 
